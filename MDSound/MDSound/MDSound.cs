@@ -4,6 +4,10 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using NAudio.Wave;
+using NAudio.CoreAudioApi;
+using System.Runtime.InteropServices;
+using System.IO;
 
 namespace MDSound
 {
@@ -17,6 +21,8 @@ namespace MDSound
         private uint SamplingBuffer = DefaultSamplingBuffer;
         private int[][] StreamBufs = null;
         public dacControl dacControl = null;
+
+        private BufferedWaveProvider wavProvider = new BufferedWaveProvider(new WaveFormat((int)44100, 16, 2));
 
         private Chip[] insts = null;
         private Dictionary<enmInstrumentType, Instrument[]> dicInst = new Dictionary<enmInstrumentType, Instrument[]>();
@@ -199,7 +205,6 @@ namespace MDSound
             {
                 this.SamplingRate = SamplingRate;
                 this.SamplingBuffer = SamplingBuffer;
-                this.insts = insts;
 
                 buffer = new int[2][] { new int[1], new int[1] };
                 StreamBufs = new int[2][] { new int[0x100], new int[0x100] };
@@ -208,22 +213,41 @@ namespace MDSound
 
                 if (insts == null) return;
 
+                this.insts = new Chip[insts.Length];
+
+                for (int i = 0; i < insts.Length; i++)
+                {
+                    this.insts[i] = new Chip();
+                    this.insts[i].ID = 0;
+                    this.insts[i].type = insts[i].type;
+                    this.insts[i].Instrument = insts[i].Instrument;
+                    this.insts[i].Update = insts[i].Instrument.Update;
+                    this.insts[i].Start = insts[i].Instrument.Start;
+                    this.insts[i].Stop = insts[i].Instrument.Stop;
+                    this.insts[i].Reset = insts[i].Instrument.Reset;
+                    this.insts[i].SamplingRate = insts[i].SamplingRate;
+                    this.insts[i].Clock = insts[i].Clock;
+                    this.insts[i].Option = insts[i].Option;
+                    this.insts[i].Volume = insts[i].Volume;
+                }
+
+
                 dicInst.Clear();
 
                 //ボリューム値から実際の倍数を求める
                 int total = 0;
-                foreach (Chip inst in insts)
+                foreach (Chip inst in this.insts)
                 {
                     if (inst.type == enmInstrumentType.Nes) inst.Volume = 0;
                     int balance = GetRegulationVoulme(inst,out double mul);
                     //16384 = 0x4000 = short.MAXValue + 1
-                    total += (int)((((int)(16384.0 * Math.Pow(10.0, 0 / 40.0)) * balance) >> 8) * mul) / insts.Length;
+                    total += (int)((((int)(16384.0 * Math.Pow(10.0, 0 / 40.0)) * balance) >> 8) * mul) / this.insts.Length;
                 }
                 //総ボリューム値から最大ボリュームまでの倍数を求める
                 //volumeMul = (double)(16384.0 / insts.Length) / total;
                 volumeMul = (double)16384.0 / total;
                 //ボリューム値から実際の倍数を求める
-                foreach (Chip inst in insts)
+                foreach (Chip inst in this.insts)
                 {
                     if ((inst.VolumeBalance & 0x8000) != 0)
                         inst.tVolumeBalance =
@@ -236,7 +260,9 @@ namespace MDSound
                     inst.tVolume = Math.Max(Math.Min((int)(n * volumeMul), short.MaxValue), short.MinValue);
                 }
 
-                foreach (Chip inst in insts)
+
+
+                foreach (Chip inst in this.insts)
                 {
                     inst.SamplingRate = inst.Start(inst.ID, inst.SamplingRate, inst.Clock, inst.Option);
                     inst.Reset(inst.ID);
@@ -591,63 +617,138 @@ namespace MDSound
 
             }
         }
+        public int Update(short[] buf, int sampleCount)
+        {
+            int offset = 0;
+            lock (lockobj)
+            {
+
+                for (i = 0; i < sampleCount * 2 && offset + i < buf.Length; i += 2)
+                {
+
+                    //frame?.Invoke();
+
+                    dacControl?.update();
+
+                    a = 0;
+                    b = 0;
+
+                    buffer[0][0] = 0;
+                    buffer[1][0] = 0;
+                    ResampleChipStream(insts, buffer, 1);
+                    //if (buffer[0][0] != 0) Console.WriteLine("{0}", buffer[0][0]);
+                    a += buffer[0][0];
+                    b += buffer[1][0];
+
+                    if (incFlag)
+                    {
+                        a += buf[offset + i + 0];
+                        b += buf[offset + i + 1];
+                    }
+
+                    Clip(ref a, ref b);
+
+                    buf[offset + i + 0] = (short)a;
+                    buf[offset + i + 1] = (short)b;
+                    visWaveBuffer.Enq((short)a, (short)b);
+                }
+
+                return Math.Min(i, sampleCount);
+
+            }
+        }
+        public short[] Update(int sampleCount)
+        {
+            int offset = 0;
+            short[] buf = new short[2 * sampleCount];
+            lock (lockobj)
+            {
+                for (i = 0; i < sampleCount * 2; i += 2)
+                {
+
+                    a = 0;
+                    b = 0;
+
+                    buffer[0][0] = 0;
+                    buffer[1][0] = 0;
+                    ResampleChipStream(insts, buffer, 1);
+                    a += buffer[0][0];
+                    b += buffer[1][0];
+
+                    if (incFlag)
+                    {
+                        a += buf[offset + i + 0];
+                        b += buf[offset + i + 1];
+                    }
+
+                    Clip(ref a, ref b);
+
+                    buf[offset + i + 0] = (short)a;
+                    buf[offset + i + 1] = (short)b;
+
+                }
+                return buf;
+            }
+        }
+        public unsafe void Update(int sampleCount, IntPtr ptr)
+        {
+            int offset = 0;
+            //short[] buf = new short[2 * sampleCount];
+            short* buf = (short*)ptr.ToPointer();
+            lock (lockobj)
+            {
+
+                for (i = 0; i < sampleCount * 2; i += 2)
+                {
+
+                    a = 0;
+                    b = 0;
+
+                    buffer[0][0] = 0;
+                    buffer[1][0] = 0;
+                    ResampleChipStream(insts, buffer, 1);
+                    a += buffer[0][0];
+                    b += buffer[1][0];
+
+                    if (incFlag)
+                    {
+                        a += buf[offset + i + 0];
+                        b += buf[offset + i + 1];
+                    }
+
+                    Clip(ref a, ref b);
+
+                    buf[offset + i + 0] = (short)a;
+                    buf[offset + i + 1] = (short)b;
+
+                }
+            }
+        }
+
+        public void StartRendering()
+        {
+
+            wavProvider = new BufferedWaveProvider(new WaveFormat((int)SamplingRate, 16, 2));
+            var mmDevice = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
 
 
-        //public int Update(short[] buf, int offset, int sampleCount, Action frame)
-        //{
-        //    lock (lockobj)
-        //    {
-        //        int a, b;
+            IWavePlayer wavOut = new WasapiOut(mmDevice, AudioClientShareMode.Shared, false, 200);
 
-        //        for (int i = 0; i < sampleCount; i += 2)
-        //        {
+            wavOut.Init(wavProvider);
+            wavOut.Play();
+            Console.WriteLine("exit rendering");
+        }
 
-        //            frame?.Invoke();
-
-        //            a = 0;
-        //            b = 0;
-
-        //            buffer[0][0] = 0;
-        //            buffer[1][0] = 0;
-        //            ResampleChipStream(insts, buffer, 1);
-
-        //            if (insts != null && insts.Length > 0)
-        //            {
-        //                for (int j = 0; j < insts.Length; j++)
-        //                {
-        //                    buff[0][0] = 0;
-        //                    buff[1][0] = 0;
-
-        //                    int mul = insts[j].Volume;
-        //                    mul = (int)(16384.0 * Math.Pow(10.0, mul / 40.0));
-
-        //                    insts[j].Update?.Invoke(insts[j].ID, buff, 1);
-
-        //                    buffer[0][0] += (short)((Limit(buff[0][0], 0x7fff, -0x8000) * mul) >> 14);
-        //                    buffer[1][0] += (short)((Limit(buff[1][0], 0x7fff, -0x8000) * mul) >> 14);
-        //                }
-        //            }
-
-        //            a += buffer[0][0];
-        //            b += buffer[1][0];
-
-        //            if (incFlag)
-        //            {
-        //                a += buf[offset + i + 0];
-        //                b += buf[offset + i + 1];
-        //            }
-
-        //            Clip(ref a, ref b);
-
-        //            buf[offset + i + 0] = (short)a;
-        //            buf[offset + i + 1] = (short)b;
-
-        //        }
-
-        //        return sampleCount;
-
-        //    }
-        //}
+        public void Rendering(int size)
+        {
+            var data = Update(size);
+            var dd = new byte[2];
+            for (int i = 0; i < data.Length; i++)
+            {
+                dd = BitConverter.GetBytes(data[i]);
+                wavProvider.AddSamples(dd, 0, 2);
+            }
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Clip(ref int a, ref int b)
@@ -1154,6 +1255,7 @@ namespace MDSound
                 ((ay8910)(dicInst[enmInstrumentType.AY8910][ChipIndex])).Write(ChipID, 0, Adr, Data);
             }
         }
+
 
         public void setVolumeAY8910(int vol)
         {
