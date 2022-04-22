@@ -3,42 +3,26 @@ using System.Diagnostics;
 
 namespace MDSound.fmvgen
 {
-    public class PSG2 : fmgen.PSG
+    public class psg2Light : fmgen.PSG
     {
 
         protected byte[] panpot = new byte[3];
         protected byte[] phaseReset = new byte[3];
         protected bool[] phaseResetBefore = new bool[3];
         protected byte[] duty = new byte[3];
-        private reverb reverb;
-        private distortion distortion;
-        private chorus chorus;
-        private effect.HPFLPF hpflpf;
-        private effect.ReversePhase reversePhase;
-        private effect.Compressor compressor;
-        private int efcStartCh;
         private byte[][] user = new byte[6][] { new byte[64], new byte[64], new byte[64], new byte[64], new byte[64], new byte[64] };
         private int userDefCounter = 0;
         private int userDefNum = 0;
         private Func<int, uint, int>[] tblGetSample;
-        private int num;
         protected double ncountDbl;
         private const double ncountDiv = 32.0;
 
-        public PSG2(int num,reverb reverb, distortion distortion,chorus chorus, effect.HPFLPF hpflpf, effect.ReversePhase reversePhase,effect.Compressor compressor, int efcStartCh)
+        public psg2Light()
         {
-            this.num = num;
-            this.reverb = reverb;
-            this.distortion = distortion;
-            this.chorus = chorus;
-            this.hpflpf = hpflpf;
-            this.reversePhase = reversePhase;
-            this.compressor = compressor;
-            this.efcStartCh = efcStartCh;
             makeTblGetSample();
         }
 
-        ~PSG2()
+        ~psg2Light()
         {
         }
 
@@ -170,21 +154,18 @@ namespace MDSound.fmvgen
 
                             for (int j = 0; j < (1 << oversampling); j++)
                             {
+                                byte revBit = 0x80;
                                 for (int k = 0; k < 3; k++)
                                 {
                                     sample = tblGetSample[duty[k]](k, olevel[k]);
                                     int L = sample;
                                     int R = sample;
-                                    distortion.Mix(efcStartCh + k, ref L, ref R);
-                                    chorus.Mix(efcStartCh + k, ref L, ref R);
-                                    hpflpf.Mix(efcStartCh + k, ref L, ref R);
-                                    compressor.Mix(efcStartCh + k, ref L, ref R);
                                     L = (panpot[k] & 2) != 0 ? L : 0;
                                     R = (panpot[k] & 1) != 0 ? R : 0;
-                                    L *= reversePhase.SSG[num][k][0];
-                                    R *= reversePhase.SSG[num][k][1];
-                                    revSampleL += (int)(L * reverb.SendLevel[efcStartCh + k] * 0.6);
-                                    revSampleR += (int)(R * reverb.SendLevel[efcStartCh + k] * 0.6);
+                                    L *= (reg[15] & revBit) != 0 ? 1 : -1;
+                                    revBit >>= 1;
+                                    R *= (reg[15] & revBit) != 0 ? 1 : -1;
+                                    revBit >>= 1;
                                     sampleL += L;
                                     sampleR += R;
                                     scount[k] += speriod[k];
@@ -198,7 +179,6 @@ namespace MDSound.fmvgen
 
                             StoreSample(ref dest[ptrDest + 0], sampleL);
                             StoreSample(ref dest[ptrDest + 1], sampleR);
-                            reverb.StoreDataC(revSampleL, revSampleR);
                             ptrDest += 2;
 
                             visVolume = sampleL;
@@ -223,6 +203,7 @@ namespace MDSound.fmvgen
 
                                 ncountDbl += ((double)nperiod / ((reg[6] & 0x20) != 0 ? ncountDiv : 1.0));
 
+                                byte revBit = 0x80;
                                 for (int k = 0; k < 3; k++)
                                 {
                                     sample = tblGetSample[duty[k]](k, olevel[k]);
@@ -235,16 +216,12 @@ namespace MDSound.fmvgen
                                     L += sample;
                                     R += sample;
 
-                                    distortion.Mix(efcStartCh + k, ref L, ref R);
-                                    chorus.Mix(efcStartCh + k, ref L, ref R);
-                                    hpflpf.Mix(efcStartCh + k, ref L, ref R);
-                                    compressor.Mix(efcStartCh + k, ref L, ref R);
                                     L = (panpot[k] & 2) != 0 ? L : 0;
                                     R = (panpot[k] & 1) != 0 ? R : 0;
-                                    L *= reversePhase.SSG[num][k][0];
-                                    R *= reversePhase.SSG[num][k][1];
-                                    revSampleL += (int)(L * reverb.SendLevel[efcStartCh + k] * 0.6);
-                                    revSampleR += (int)(R * reverb.SendLevel[efcStartCh + k] * 0.6);
+                                    L *= (reg[15] & revBit) != 0 ? 1 : -1;
+                                    revBit >>= 1;
+                                    R *= (reg[15] & revBit) != 0 ? 1 : -1;
+                                    revBit >>= 1;
                                     sampleL += L;
                                     sampleR += R;
                                     scount[k] += speriod[k];
@@ -255,7 +232,6 @@ namespace MDSound.fmvgen
                             sampleR /= (1 << oversampling);
                             StoreSample(ref dest[ptrDest + 0], sampleL);
                             StoreSample(ref dest[ptrDest + 1], sampleR);
-                            reverb.StoreDataC(revSampleL, revSampleR);
                             ptrDest += 2;
 
                             visVolume = sampleL;
@@ -298,6 +274,7 @@ namespace MDSound.fmvgen
                                 >> (int)((uint)ncountDbl >> (noiseshift + oversampling + 1)));
                             ncountDbl += (nperiod / ((reg[6] & 0x20) != 0 ? ncountDiv : 1.0));
 
+                            byte revBit = 0x80;
                             for (int k = 0; k < 3; k++)
                             {
                                 uint lv = (p[k] == null ? env : olevel[k]);
@@ -311,16 +288,12 @@ namespace MDSound.fmvgen
                                 L += sample;
                                 R += sample;
 
-                                distortion.Mix(efcStartCh + k, ref L, ref R);
-                                chorus.Mix(efcStartCh + k, ref L, ref R);
-                                hpflpf.Mix(efcStartCh + k, ref L, ref R);
-                                compressor.Mix(efcStartCh + k, ref L, ref R);
                                 L = (panpot[k] & 2) != 0 ? L : 0;
                                 R = (panpot[k] & 1) != 0 ? R : 0;
-                                L *= reversePhase.SSG[num][k][0];
-                                R *= reversePhase.SSG[num][k][1];
-                                revSampleL += (int)(L * reverb.SendLevel[efcStartCh + k] * 0.6);
-                                revSampleR += (int)(R * reverb.SendLevel[efcStartCh + k] * 0.6);
+                                L *= (reg[15] & revBit) != 0 ? 1 : -1;
+                                revBit >>= 1;
+                                R *= (reg[15] & revBit) != 0 ? 1 : -1;
+                                revBit >>= 1;
                                 sampleL += L;
                                 sampleR += R;
                                 scount[k] += speriod[k];
@@ -334,7 +307,6 @@ namespace MDSound.fmvgen
 
                         StoreSample(ref dest[ptrDest + 0], sampleL);
                         StoreSample(ref dest[ptrDest + 1], sampleR);
-                        reverb.StoreDataC(revSampleL, revSampleR);
                         ptrDest += 2;
 
                         visVolume = sampleL;
