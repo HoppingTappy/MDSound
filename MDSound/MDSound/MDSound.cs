@@ -2733,6 +2733,84 @@ namespace MDSound
             }
         }
 
+        public void WriteYM2609_SetAdpcm012(byte ChipID, int p, byte[] Buf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.YM2609)) return;
+
+                ((ym2609)(dicInst[enmInstrumentType.YM2609][0])).SetAdpcm012(ChipID, p, Buf);
+            }
+        }
+
+        public void WriteYM2609_SetAdpcm012(int ChipIndex, byte ChipID,int p, byte[] Buf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.YM2609)) return;
+
+                ((ym2609)(dicInst[enmInstrumentType.YM2609][ChipIndex])).SetAdpcm012(ChipID, p, Buf);
+            }
+        }
+
+        public void WriteYM2609_SetOperatorWave(byte ChipID, byte[] Buf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.YM2609)) return;
+
+                ((ym2609)(dicInst[enmInstrumentType.YM2609][0])).SetOperatorWave(ChipID, Buf);
+            }
+        }
+
+        public void WriteYM2609_SetOperatorWave(int ChipIndex, byte ChipID, byte[] Buf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.YM2609)) return;
+
+                ((ym2609)(dicInst[enmInstrumentType.YM2609][ChipIndex])).SetOperatorWave(ChipID, Buf);
+            }
+        }
+
+        public void WriteYM2609_SetOperatorWaveDic(byte ChipID,int n, byte[] Buf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.YM2609)) return;
+
+                ((ym2609)(dicInst[enmInstrumentType.YM2609][0])).SetOperatorWaveDic(ChipID, n, Buf);
+            }
+        }
+
+        public void WriteYM2609_SetOperatorWaveDic(int ChipIndex, byte ChipID,int n, byte[] Buf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.YM2609)) return;
+
+                ((ym2609)(dicInst[enmInstrumentType.YM2609][ChipIndex])).SetOperatorWaveDic(ChipID, n, Buf);
+            }
+        }
+
+        public byte[] ReadYM2609_GetPSGUserWave(byte ChipID, int p, int n)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.YM2609)) return null;
+                return ((ym2609)(dicInst[enmInstrumentType.YM2609][0])).GetPSGUserWave(ChipID, p, n);
+            }
+        }
+
+        public byte[] ReadYM2609_GetPSGUserWave(int ChipIndex, byte ChipID,int p, int n)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.YM2609)) return null;
+                return ((ym2609)(dicInst[enmInstrumentType.YM2609][ChipIndex])).GetPSGUserWave(ChipID,p, n);
+            }
+        }
+
         #endregion
 
 
@@ -4826,6 +4904,23 @@ namespace MDSound
             }
         }
 
+        public void SetVolumeGigatron(int vol)
+        {
+            if (!dicInst.ContainsKey(enmInstrumentType.Gigatron)) return;
+
+            if (insts == null) return;
+
+            foreach (Chip c in insts)
+            {
+                if (c.type != enmInstrumentType.Gigatron) continue;
+                c.Volume = Math.Max(Math.Min(vol, 20), -192);
+                //int n = (((int)(16384.0 * Math.Pow(10.0, c.Volume / 40.0)) * c.tVolumeBalance) >> 8) / insts.Length;
+                int n = (((int)(16384.0 * Math.Pow(10.0, c.Volume / 40.0)) * c.tVolumeBalance) >> 8);
+                //16384 = 0x4000 = short.MAXValue + 1
+                c.tVolume = Math.Max(Math.Min((int)(n * volumeMul), short.MaxValue), short.MinValue);
+            }
+        }
+
         public void SetVolumeVRC7(int vol)
         {
             if (!dicInst.ContainsKey(enmInstrumentType.VRC7)) return;
@@ -6117,6 +6212,18 @@ namespace MDSound
         {
             if (!dicInst.ContainsKey(enmInstrumentType.VRC6)) return null;
             return dicInst[enmInstrumentType.VRC6][ChipIndex].visVolume;
+        }
+
+        public int[][][] getGigatronVisVolume()
+        {
+            if (!dicInst.ContainsKey(enmInstrumentType.Gigatron)) return null;
+            return dicInst[enmInstrumentType.Gigatron][0].visVolume;
+        }
+
+        public int[][][] getGigatronVisVolume(int ChipIndex)
+        {
+            if (!dicInst.ContainsKey(enmInstrumentType.Gigatron)) return null;
+            return dicInst[enmInstrumentType.Gigatron][ChipIndex].visVolume;
         }
 
         public int[][][] getVRC7VisVolume()

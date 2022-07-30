@@ -164,6 +164,29 @@ namespace MDSound
             chip[ChipID].setAdpcmA(_adpcma, _adpcma_size);
         }
 
+        public void SetAdpcm012(byte ChipID, int p, byte[] _adpcmb)
+        {
+            if (chip[ChipID] == null) return;
+            chip[ChipID].setAdpcm012(p, _adpcmb);
+        }
+
+        public void SetOperatorWave(byte ChipID, byte[] wave)
+        {
+            if (chip[ChipID] == null) return;
+            chip[ChipID].setOperatorWave(wave);
+        }
+
+        public void SetOperatorWaveDic(byte ChipID, int n, byte[] wave)
+        {
+            if (chip[ChipID] == null) return;
+            chip[ChipID].setOperatorWaveDic(n, wave);
+        }
+
+        public byte[] GetPSGUserWave(byte ChipID,int p, int n)
+        {
+            return chip[ChipID].getPSGuserWave(p, n);
+        }
+
         public override int Write(byte ChipID, int port, int adr, int data)
         {
             return YM2609_Write(ChipID, (uint)adr, (byte)data);
