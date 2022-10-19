@@ -260,7 +260,7 @@ namespace MDSound
                             inst.VolumeBalance;
                     //int n = (((int)(16384.0 * Math.Pow(10.0, inst.Volume / 40.0)) * inst.tVolumeBalance) >> 8) / insts.Length;
                     int n = (((int)(16384.0 * Math.Pow(10.0, inst.Volume / 40.0)) * inst.tVolumeBalance) >> 8) ;
-                    inst.tVolume = Math.Max(Math.Min((int)(n * volumeMul), short.MaxValue), short.MinValue);
+                    inst.tVolume = Math.Max(Math.Min((int)(n * volumeMul), int.MaxValue), int.MinValue);
                 }
 
 
