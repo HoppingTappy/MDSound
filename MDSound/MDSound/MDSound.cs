@@ -77,6 +77,8 @@ namespace MDSound
 
         public visWaveBuffer visWaveBuffer = new visWaveBuffer();
 
+        public static float masterVolume = 1.0f;
+
 #if DEBUG
         System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
 #endif
@@ -260,7 +262,7 @@ namespace MDSound
                             inst.VolumeBalance;
                     //int n = (((int)(16384.0 * Math.Pow(10.0, inst.Volume / 40.0)) * inst.tVolumeBalance) >> 8) / insts.Length;
                     int n = (((int)(16384.0 * Math.Pow(10.0, inst.Volume / 40.0)) * inst.tVolumeBalance) >> 8) ;
-                    inst.tVolume = Math.Max(Math.Min((int)(n * volumeMul), int.MaxValue), int.MinValue);
+                    inst.tVolume = Math.Max(Math.Min((int)(n * volumeMul), short.MaxValue), short.MinValue);
                 }
 
 
@@ -670,8 +672,8 @@ namespace MDSound
                 for (i = 0; i < sampleCount * 2; i += 2)
                 {
 
-                    a = 0;
-                    b = 0;
+                    int a = 0;
+                    int b = 0;
 
                     buffer[0][0] = 0;
                     buffer[1][0] = 0;
@@ -684,6 +686,9 @@ namespace MDSound
                         a += buf[offset + i + 0];
                         b += buf[offset + i + 1];
                     }
+
+                    a = (int)((float)a * masterVolume);
+                    b = (int)((float)b * masterVolume);
 
                     Clip(ref a, ref b);
 
@@ -6458,7 +6463,13 @@ namespace MDSound
             }
         }
 
-
+        public void setMasterVolume(float v)
+        {
+            lock (lockobj)
+            {
+                masterVolume = v;
+            }
+        }
 
         public void setIncFlag()
         {
