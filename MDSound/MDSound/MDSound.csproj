@@ -32,6 +32,6 @@
     <Content Include="fmgen\readme.txt" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="NAudio" Version="2.0.1" />
+    <PackageReference Include="NAudio" Version="2.1.0" />
   </ItemGroup>
 </Project>
