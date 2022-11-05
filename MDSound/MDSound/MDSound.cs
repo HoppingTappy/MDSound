@@ -44,6 +44,7 @@ namespace MDSound
         private List<int[]> saa1099Mask = new List<int[]>(new int[][] { new int[] { 0, 0 } });
         private List<int[]> x1_010Mask = new List<int[]>(new int[][] { new int[] { 0, 0 } });
         private List<int[]> WSwanMask = new List<int[]>(new int[][] { new int[] { 0, 0 } });
+        private List<int[]> ES5503Mask = new List<int[]>(new int[][] { new int[] { 0, 0 } });
 
         private int[][][] rf5c164Vol = new int[][][] {
             new int[8][] { new int[2], new int[2], new int[2], new int[2], new int[2], new int[2], new int[2], new int[2] }
@@ -155,7 +156,8 @@ namespace MDSound
             WSwan,
             AY8910mame,
             uPD7759,
-            Gigatron
+            Gigatron,
+            ES5503
         }
 
         public class Chip
@@ -284,6 +286,10 @@ namespace MDSound
                     }
 
                     SetupResampler(inst);
+                    if (inst.type == enmInstrumentType.ES5503)
+                    {
+                        ((Es5503)inst.Instrument).es5503_set_srchg_cb(inst.ID, ChangeChipSampleRate, inst);
+                    }
                 }
 
                 dacControl = new dacControl(SamplingRate, this);
@@ -581,6 +587,61 @@ namespace MDSound
 
         }
 
+        private void ChangeChipSampleRate(Chip chip,UInt32 NewSmplRate)
+        {
+            if (chip.SamplingRate == NewSmplRate)
+            {
+                return;
+            }
+
+            chip.SamplingRate = NewSmplRate;
+
+            if (chip.SamplingRate == 0)
+            {
+                chip.Resampler = 0xff;
+                return;
+            }
+
+            if (chip.SamplingRate < SamplingRate)
+            {
+                chip.Resampler = 0x01;
+            }
+            else if (chip.SamplingRate == SamplingRate)
+            {
+                chip.Resampler = 0x02;
+            }
+            else if (chip.SamplingRate > SamplingRate)
+            {
+                chip.Resampler = 0x03;
+            }
+            if (chip.Resampler == 0x01 || chip.Resampler == 0x03)
+            {
+                if (ResampleMode == 0x02 || (ResampleMode == 0x01 && chip.Resampler == 0x03))
+                    chip.Resampler = 0x00;
+            }
+
+            chip.SmpP = 0x00;
+            chip.SmpLast = 0x00;
+            chip.SmpNext = 0x00;
+            chip.LSmpl = new int[2];
+            chip.LSmpl[0] = 0x00;
+            chip.LSmpl[1] = 0x00;
+            chip.NSmpl = new int[2];
+            if (chip.Resampler == 0x01)
+            {
+                // Pregenerate first Sample (the upsampler is always one too late)
+                int[][] buf = new int[2][] { new int[1], new int[1] };
+                chip.Update?.Invoke(chip.ID, buf, 1);
+                chip.NSmpl[0] = buf[0x00][0x00];
+                chip.NSmpl[1] = buf[0x01][0x00];
+            }
+            else
+            {
+                chip.NSmpl[0] = 0x00;
+                chip.NSmpl[1] = 0x00;
+            }
+        }
+
 
         private int a, b, i;
 
@@ -611,6 +672,11 @@ namespace MDSound
                         a += buf[offset + i + 0];
                         b += buf[offset + i + 1];
                     }
+
+#if LIMIT_CHECKER
+                    if (a > 0x7fff || a < -0x8000)
+                        Console.Write("limit over [{0:d8}] : [{1:d8}]\r\n", a, b);
+#endif
 
                     Clip(ref a, ref b);
 
@@ -762,6 +828,8 @@ namespace MDSound
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void Clip(ref int a, ref int b)
         {
+            //a = Limit(a, 0x7fff, -0x8000);
+            //b = Limit(b, 0x7fff, -0x8000);
             if ((uint)(a + 32767) > (uint)(32767 * 2))
             {
                 if ((int)(a + 32767) >= (int)(32767 * 2))
@@ -1505,7 +1573,7 @@ namespace MDSound
         {
             lock (lockobj)
             {
-                ay8910Mask[0][chipID] |= ch;
+                WSwanMask[0][chipID] |= ch;
                 if (!dicInst.ContainsKey(enmInstrumentType.WSwan)) return;
                 if (dicInst[enmInstrumentType.WSwan][0] == null) return;
                 ((ws_audio)(dicInst[enmInstrumentType.WSwan][0])).SetMute((byte)chipID, WSwanMask[0][chipID]);
@@ -1560,7 +1628,6 @@ namespace MDSound
         }
 
         #endregion
-
 
         #region SAA1099
 
@@ -1674,6 +1741,128 @@ namespace MDSound
 
                 ((pokey)(dicInst[enmInstrumentType.POKEY][ChipIndex])).Write(ChipID, 0, Adr, Data);
             }
+        }
+
+        #endregion
+
+        #region ES5503
+
+        public void WriteES5503(byte ChipID, int Adr, byte Data)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+                if (dicInst[enmInstrumentType.ES5503][0] == null) return;
+
+                ((Es5503)(dicInst[enmInstrumentType.ES5503][0])).Write(ChipID, 0, Adr, Data);
+            }
+        }
+
+        public void WriteES5503(int ChipIndex, byte ChipID, int Adr, byte Data)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+                if (dicInst[enmInstrumentType.ES5503][ChipIndex] == null) return;
+
+                ((Es5503)(dicInst[enmInstrumentType.ES5503][ChipIndex])).Write(ChipID, 0, Adr, Data);
+            }
+        }
+
+        public void WriteES5503Mem(byte ChipID, int Adr, byte Data)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+                if (dicInst[enmInstrumentType.ES5503][0] == null) return;
+
+                ((Es5503)(dicInst[enmInstrumentType.ES5503][0])).WriteMem(ChipID, Adr, Data);
+            }
+        }
+
+        public void WriteES5503Mem(int ChipIndex, byte ChipID, int Adr, byte Data)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+                if (dicInst[enmInstrumentType.ES5503][0] == null) return;
+
+                ((Es5503)(dicInst[enmInstrumentType.ES5503][ChipIndex])).WriteMem(ChipID, Adr, Data);
+            }
+        }
+
+        public void setVolumeES5503(int vol)
+        {
+            if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+            if (dicInst[enmInstrumentType.ES5503][0] == null) return;
+
+            foreach (Chip c in insts)
+            {
+                if (c.type != enmInstrumentType.ES5503) continue;
+                c.Volume = Math.Max(Math.Min(vol, 20), -192);
+                //int n = (((int)(16384.0 * Math.Pow(10.0, c.Volume / 40.0)) * c.tVolumeBalance) >> 8) / insts.Length;
+                int n = (((int)(16384.0 * Math.Pow(10.0, c.Volume / 40.0)) * c.tVolumeBalance) >> 8);
+                //16384 = 0x4000 = short.MAXValue + 1
+                c.tVolume = Math.Max(Math.Min((int)(n * volumeMul), short.MaxValue), short.MinValue);
+            }
+        }
+
+        public void setES5503Mask(int chipID, int ch)
+        {
+            lock (lockobj)
+            {
+                ES5503Mask[0][chipID] |= ch;
+                if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+                if (dicInst[enmInstrumentType.ES5503][0] == null) return;
+                ((Es5503)(dicInst[enmInstrumentType.ES5503][0])).SetMute((byte)chipID, ES5503Mask[0][chipID]);
+            }
+        }
+
+        public void setES5503Mask(int ChipIndex, int chipID, int ch)
+        {
+            lock (lockobj)
+            {
+                ES5503Mask[ChipIndex][chipID] |= ch;
+                if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+                if (dicInst[enmInstrumentType.ES5503][ChipIndex] == null) return;
+                ((Es5503)(dicInst[enmInstrumentType.ES5503][ChipIndex])).SetMute((byte)chipID, ES5503Mask[ChipIndex][chipID]);
+            }
+        }
+
+        public void resetES5503Mask(int chipID, int ch)
+        {
+            lock (lockobj)
+            {
+                ES5503Mask[0][chipID] &= ~ch;
+                if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+                if (dicInst[enmInstrumentType.ES5503][0] == null) return;
+                ((Es5503)(dicInst[enmInstrumentType.ES5503][0])).SetMute((byte)chipID, ES5503Mask[0][chipID]);
+            }
+        }
+
+        public void resetES5503Mask(int ChipIndex, int chipID, int ch)
+        {
+            lock (lockobj)
+            {
+                ES5503Mask[ChipIndex][chipID] &= ~ch;
+                if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return;
+                if (dicInst[enmInstrumentType.ES5503][ChipIndex] == null) return;
+                ((Es5503)(dicInst[enmInstrumentType.ES5503][ChipIndex])).SetMute((byte)chipID, ES5503Mask[ChipIndex][chipID]);
+            }
+        }
+
+        public int[][][] getES5503VisVolume()
+        {
+            if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return null;
+            if (dicInst[enmInstrumentType.ES5503][0] == null) return null;
+            return ((Es5503)dicInst[enmInstrumentType.ES5503][0]).visVolume;
+        }
+
+        public int[][][] getES5503VisVolume(int ChipIndex)
+        {
+            if (!dicInst.ContainsKey(enmInstrumentType.ES5503)) return null;
+            if (dicInst[enmInstrumentType.ES5503][ChipIndex] == null) return null;
+            return ((Es5503)dicInst[enmInstrumentType.ES5503][ChipIndex]).visVolume;
         }
 
         #endregion
