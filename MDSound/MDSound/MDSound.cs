@@ -23,6 +23,7 @@ namespace MDSound
         public dacControl dacControl = null;
 
         private BufferedWaveProvider wavProvider = new BufferedWaveProvider(new WaveFormat((int)44100, 16, 2));
+        private IWavePlayer wavOut;
 
         private Chip[] insts = null;
         private Dictionary<enmInstrumentType, Instrument[]> dicInst = new Dictionary<enmInstrumentType, Instrument[]>();
@@ -807,18 +808,28 @@ namespace MDSound
             }
         }
 
-        public void StartRendering()
+        public void StartRendering(int latency)
         {
 
             wavProvider = new BufferedWaveProvider(new WaveFormat((int)SamplingRate, 16, 2));
             var mmDevice = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
 
 
-            IWavePlayer wavOut = new WasapiOut(mmDevice, AudioClientShareMode.Shared, false, 200);
+            this.wavOut = new WasapiOut(mmDevice, AudioClientShareMode.Shared, false, latency);
 
-            wavOut.Init(wavProvider);
-            wavOut.Play();
+            this.wavOut.Init(wavProvider);
+            this.wavOut.Play();
             Console.WriteLine("exit rendering");
+        }
+
+        public void PauseRendering()
+        {
+            this.wavOut.Pause();
+        }
+
+        public void StopRendering()
+        {
+            this.wavOut.Stop();
         }
 
         public void Rendering(int size)
