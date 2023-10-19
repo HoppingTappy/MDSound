@@ -827,6 +827,11 @@ namespace MDSound
             this.wavOut.Pause();
         }
 
+        public void ResumeRendering()
+        {
+            this.wavOut.Play();
+        }
+
         public void StopRendering()
         {
             this.wavOut.Stop();
