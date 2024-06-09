@@ -681,10 +681,10 @@ namespace MDSound
                         b += buf[offset + i + 1];
                     }
 
-#if LIMIT_CHECKER
+//#if LIMIT_CHECKER
                     if (a > 0x7fff || a < -0x8000)
                         Console.Write("limit over [{0:d8}] : [{1:d8}]\r\n", a, b);
-#endif
+//#endif
 
                     Clip(ref a, ref b);
 
@@ -2126,7 +2126,7 @@ namespace MDSound
             {
                 if (!dicInst.ContainsKey(enmInstrumentType.YM2612)) return;
                 if (!(dicInst[enmInstrumentType.YM2612][ChipIndex] is ym2612X)) return;
-                ((ym2612X)dicInst[enmInstrumentType.YM2612][ChipIndex]).XGMfunction.PlayPCM(ChipID, Adr, Data);
+                ((ym2612X)dicInst[enmInstrumentType.YM2612][ChipIndex]).XGMfunction.PlayPCM(ChipID, Port, Adr, Data);
             }
         }
 
@@ -2163,7 +2163,7 @@ namespace MDSound
             {
                 if (!dicInst.ContainsKey(enmInstrumentType.YM3438)) return;
                 if (!(dicInst[enmInstrumentType.YM3438][ChipIndex] is ym3438X)) return;
-                ((ym3438X)dicInst[enmInstrumentType.YM3438][ChipIndex]).XGMfunction.PlayPCM(ChipID, Adr, Data);
+                ((ym3438X)dicInst[enmInstrumentType.YM3438][ChipIndex]).XGMfunction.PlayPCM(ChipID, Port, Adr, Data);
             }
         }
 
@@ -2200,7 +2200,7 @@ namespace MDSound
             {
                 if (!dicInst.ContainsKey(enmInstrumentType.YM2612mame)) return;
                 if (!(dicInst[enmInstrumentType.YM2612mame][ChipIndex] is ym2612mameX)) return;
-                ((ym2612mameX)dicInst[enmInstrumentType.YM2612mame][ChipIndex]).XGMfunction.PlayPCM(ChipID, Adr, Data);
+                ((ym2612mameX)dicInst[enmInstrumentType.YM2612mame][ChipIndex]).XGMfunction.PlayPCM(ChipID, Port, Adr, Data);
             }
         }
 
@@ -3331,6 +3331,26 @@ namespace MDSound
             }
         }
 
+        public iremga20.ga20_state ReadGA20Status(byte ChipID)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.GA20)) return null;
+
+                return ((iremga20)(dicInst[enmInstrumentType.GA20][0])).GA20Data[ChipID];
+            }
+        }
+
+        public iremga20.ga20_state ReadGA20Status(int ChipIndex, byte ChipID)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.GA20)) return null;
+
+                return ((iremga20)(dicInst[enmInstrumentType.GA20][ChipIndex])).GA20Data[ChipID];
+            }
+        }
+
         #endregion
 
 
@@ -3488,6 +3508,26 @@ namespace MDSound
                 if (!dicInst.ContainsKey(enmInstrumentType.K054539)) return;
 
                 ((K054539)(dicInst[enmInstrumentType.K054539][ChipIndex])).k054539_write_rom2(ChipID, (int)ROMSize, (int)DataStart, (int)DataLength, ROMData, (int)SrcStartAdr);
+            }
+        }
+
+        public K054539.k054539_state ReadK054539Status(byte ChipID, int Adr, byte Data)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.K054539)) return null;
+
+                return ((K054539)(dicInst[enmInstrumentType.K054539][0])).K054539Data[ChipID];
+            }
+        }
+
+        public K054539.k054539_state ReadK054539Status(int ChipIndex, byte ChipID, int Adr, byte Data)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.K054539)) return null;
+
+                return ((K054539)(dicInst[enmInstrumentType.K054539][ChipIndex])).K054539Data[ChipID];
             }
         }
 
@@ -5491,6 +5531,23 @@ namespace MDSound
             }
         }
 
+        public void SetPPZ8Mask(int chipID, byte channel, bool isMask)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.PPZ8)) return;
+                ((PPZ8)dicInst[enmInstrumentType.PPZ8][0]).SetMask((byte)chipID, channel, isMask);
+            }
+        }
+
+        public void SetPPZ8Mask(int ChipIndex, int chipID, byte channel, bool isMask)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.PPZ8)) return;
+                ((PPZ8)dicInst[enmInstrumentType.PPZ8][0]).SetMask((byte)chipID, channel, isMask);
+            }
+        }
 
 
         public int[] ReadYM2612KeyOn(byte chipID)

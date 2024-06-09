@@ -103,7 +103,20 @@ namespace MDSound
             public int sample;
             public int lp_sample;
             public int lp_offset;
+            public float base_;
+            public int lastNote;
         }
+
+        private int[] baseClockTbl = new int[]
+        {
+            3900,
+            5200,
+            7800,
+            10400,
+            15600,
+            20800,
+            31200
+        };
 
         public class M
         {
@@ -320,6 +333,7 @@ namespace MDSound
                 m[chipID].work[ch].ppos = -1;
                 m[chipID].work[ch].lr[0] = 1;
                 m[chipID].work[ch].lr[1] = 1;
+                m[chipID].work[ch].base_ = (float)baseClockTbl[4] / m[chipID].rate;
             }
 
             m[chipID].mask = 0;
@@ -444,6 +458,22 @@ namespace MDSound
             return true;
         }
 
+        public void SetFreq(int chipID, int ch, int num)
+        {
+            if (ch == 0xff)
+            {
+                for (int i = 0; i < (int)VOICE.MAX; i++) SetFreq(chipID, i, num);
+            }
+            else
+            {
+                num = (byte)num;
+                if (num < 0 || num > 6) return;
+                m[chipID].work[ch].base_ = (float)baseClockTbl[num] / m[chipID].rate;
+                SetPitch(chipID, ch, m[chipID].work[ch].lastNote);
+            }
+        }
+
+
         public void SetPitch(int chipID, int ch, int note)
         {
             if (ch == 0xff)
@@ -456,11 +486,12 @@ namespace MDSound
                 UInt32 pitch = 0x10000;
                 Int16 doct = 0, dnote = 0;
 
+                m[chipID].work[ch].lastNote = note;
                 dnote = (Int16)note;
 
                 if (orig > 0x1fc0)
                 {
-                    m[chipID].work[ch].pitch = (UInt32)(0x10000 * m[chipID].base_);
+                    m[chipID].work[ch].pitch = (UInt32)(0x10000 * m[chipID].work[ch].base_);
                     return;
                 }
 
@@ -471,7 +502,7 @@ namespace MDSound
                 }
                 else if (dnote > 0)
                 {
-                    for (dnote -= 64 * 12; dnote > 0; dnote -= 64 * 12, doct++) ;
+                    for (dnote -= 64 * 12; dnote >= 0; dnote -= 64 * 12, doct++) ;
                     dnote += 64 * 12;
                     pitch += pitchtbl[dnote];
                     pitch <<= doct;
@@ -482,7 +513,7 @@ namespace MDSound
                     pitch += pitchtbl[dnote];
                     pitch >>= doct;
                 }
-                m[chipID].work[ch].pitch = (UInt32)(pitch * m[chipID].base_);
+                m[chipID].work[ch].pitch = (UInt32)(pitch * m[chipID].work[ch].base_);
             }
         }
 
@@ -532,6 +563,19 @@ namespace MDSound
                 else
                 {
                     // 128段階
+                    pan -= 0x80;
+                    if(pan>=0 && pan <= 31)
+                    {
+                        m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 0;
+                    }
+                    else if (pan >= 32 && pan <= 95)
+                    {
+                        m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 1;
+                    }
+                    else if (pan >= 96 && pan <= 127)
+                    {
+                        m[chipID].work[ch].lr[0] = 0; m[chipID].work[ch].lr[1] = 1;
+                    }
                 }
             }
         }
@@ -547,6 +591,20 @@ namespace MDSound
             {
                 // 128
                 m[chipID].voltbl = voltbl[1];
+            }
+        }
+
+        public void SetVolTableZms(int chipID, int sel, int[] tbl)
+        {
+            if (sel == 1)
+            {
+                // 16
+                m[chipID].voltbl = tbl;
+            }
+            else
+            {
+                // 128
+                m[chipID].voltbl = tbl;
             }
         }
 
@@ -667,8 +725,12 @@ namespace MDSound
 
                     if (!mute)
                     {
-                        _buffer[0][buf_ptr] += (Int16)(sample * m[chipID].work[ch].lr[0]);
-                        _buffer[1][buf_ptr] += (Int16)(sample * m[chipID].work[ch].lr[1]);
+                        int a = _buffer[0][buf_ptr] + (sample * m[chipID].work[ch].lr[0]);
+                        int b = _buffer[1][buf_ptr] + (sample * m[chipID].work[ch].lr[1]);
+                        a = Math.Min(Math.Max(a, Int16.MinValue), Int16.MaxValue);
+                        b = Math.Min(Math.Max(b, Int16.MinValue), Int16.MaxValue);
+                        _buffer[0][buf_ptr] = a;
+                        _buffer[1][buf_ptr] = b;
                         buf_ptr++;
                     }
 
@@ -687,8 +749,10 @@ namespace MDSound
                             m[chipID].work[ch].ppos = ofst;
                             m[chipID].work[ch].sample = m[chipID].work[ch].lp_sample;
                             m[chipID].work[ch].offset = m[chipID].work[ch].lp_offset;
+                            //Console.WriteLine("loop!");
                         }
                     }
+                    //Console.WriteLine("t:{0} ofst:{1:X} sample:{2:X} pitch:{3:X}", m[chipID].work[ch].type, ofst >> 16,sample,pitch);
                 }
                 m[chipID].work[ch].pos = ofst;
             }
