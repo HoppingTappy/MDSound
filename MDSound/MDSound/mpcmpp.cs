@@ -5,15 +5,15 @@ using System.Text;
 
 namespace MDSound
 {
-    public class mpcmX68k : Instrument
+    public class mpcmpp : Instrument
     {
-        public override string Name { get { return "mpcmX68k"; } set { } }
-        public override string ShortName { get { return "mpx"; } set { } }
+        public override string Name { get { return "mpcmpp"; } set { } }
+        public override string ShortName { get { return "mppp"; } set { } }
 
 
 
 
-        public mpcmX68k()
+        public mpcmpp()
         {
             visVolume = new int[2][][] {
                 new int[1][] { new int[2] { 0, 0 } }
@@ -119,17 +119,85 @@ namespace MDSound
             public int lp_offset;
             public float base_;
             public int lastNote;
+
+            public int PcmKind;
+            public double freq;
+            public int outs;
         }
 
-        private int[] baseClockTbl = new int[]
+        private double[] baseClockTbl = new double[]
         {
-            3900,
-            5200,
-            7800,
-            10400,
-            15600,
-            20800,
-            31200
+            //ADPCM mono
+            3906.2,
+            5208.0,
+            7812.5,
+            10416.7,
+            15625.0,
+            //16bit signed PCM mono
+            20800.0,
+            //8bit signed PCM mono
+            31200.0,
+            //16bit signed PCM (Through) mono
+            -1,
+            //16bit signed PCM mono
+            15625.0,
+            16000.0,
+            22050.0,
+            24000.0,
+            32000.0,
+            44100.0,
+            48000.0,
+            -1,
+            //8bit signed PCM mono
+            15625.0,
+            16000.0,
+            22050.0,
+            24000.0,
+            32000.0,
+            44100.0,
+            48000.0,
+            -1,
+            //16bit signed PCM stereo
+            15625.0,
+            16000.0,
+            22050.0,
+            24000.0,
+            32000.0,
+            44100.0,
+            48000.0,
+            -1,
+            //8bit signed PCM stereo
+            15625.0,
+            16000.0,
+            22050.0,
+            24000.0,
+            32000.0,
+            44100.0,
+            48000.0,
+            -1,
+            //variabled ADPCM mono
+            -1,
+            //variabled 16bit signed PCM mono
+            -1
+        };
+        private int[] outsTable = new int[]
+{
+            1,1,1,1, 1,1,1,1,
+            1,1,1,1, 1,1,1,1,
+            1,1,1,1, 1,1,1,1,
+            2,2,2,2, 2,2,2,2,
+            2,2,2,2, 2,2,2,2,
+            1,1
+};
+        private TYPE[] typeTable = new TYPE[]
+        {
+            TYPE._ADPCM,TYPE._ADPCM,TYPE._ADPCM,TYPE._ADPCM,TYPE._ADPCM,
+            TYPE._16, TYPE._8,TYPE._16,
+            TYPE._16,TYPE._16,TYPE._16,TYPE._16,TYPE._16,TYPE._16,TYPE._16,TYPE._16,
+            TYPE._8,TYPE._8,TYPE._8,TYPE._8,TYPE._8,TYPE._8,TYPE._8,TYPE._8,
+            TYPE._16,TYPE._16,TYPE._16,TYPE._16,TYPE._16,TYPE._16,TYPE._16,TYPE._16,
+            TYPE._8,TYPE._8,TYPE._8,TYPE._8,TYPE._8,TYPE._8,TYPE._8,TYPE._8,
+            TYPE._ADPCM,TYPE._16
         };
 
         public class M
@@ -406,15 +474,14 @@ namespace MDSound
             if (ch == 0xff)
             {
                 for (int i = 0; i < (int)VOICE.MAX; i++) KeyOn(chipID, i);
+                return;
             }
-            else
-            {
-                m[chipID].work[ch].enable = true;
-                m[chipID].work[ch].lp_work = 0;
-                m[chipID].work[ch].pos = 0;
-                m[chipID].work[ch].ppos = -1;
-                m[chipID].work[ch].sample = 0;
-            }
+
+            m[chipID].work[ch].enable = true;
+            m[chipID].work[ch].lp_work = 0;
+            m[chipID].work[ch].pos = 0;
+            m[chipID].work[ch].ppos = -1;
+            m[chipID].work[ch].sample = 0;
         }
 
         public void KeyOff(int chipID, int ch)
@@ -422,11 +489,10 @@ namespace MDSound
             if (ch == 0xff)
             {
                 for (int i = 0; i < (int)VOICE.MAX; i++) KeyOff(chipID, i);
+                return;
             }
-            else
-            {
-                m[chipID].work[ch].enable = false;
-            }
+
+            m[chipID].work[ch].enable = false;
         }
 
         public bool SetPcm(int chipID, int ch, SETPCM ptr)
@@ -434,62 +500,75 @@ namespace MDSound
             if (ch == 0xff)
             {
                 for (int i = 0; i < (int)VOICE.MAX; i++) SetPcm(chipID, i, ptr);
+                return true;
+            }
+
+            KeyOff(chipID, ch);
+
+            m[chipID].work[ch].type = ptr.type;
+            m[chipID].work[ch].orig = (UInt16)(ptr.orig << 6);
+            m[chipID].work[ch].adrs_buf = ptr.adrs_buf;
+            m[chipID].work[ch].adrs_ptr = ptr.adrs_ptr;
+            m[chipID].work[ch].size = ptr.size;
+            m[chipID].work[ch].lp_start = ptr.start;
+            m[chipID].work[ch].lp_end = ptr.end;
+            m[chipID].work[ch].lp_count = ptr.count;
+            m[chipID].work[ch].pitch = 0x10000;
+
+            if (m[chipID].work[ch].lp_end == 0) m[chipID].work[ch].lp_end = m[chipID].work[ch].size;
+
+            switch (ptr.type)
+            {
+                case (byte)TYPE._8:
+                    //SetFreq(chipID, ch, 0x10);
+                    break;
+                case (byte)TYPE._16:
+                    m[chipID].work[ch].size /= 2;
+                    m[chipID].work[ch].lp_start /= 2;
+                    m[chipID].work[ch].lp_end /= 2;
+                    //SetFreq(chipID, ch, 8);
+                    break;
+                case (byte)TYPE._ADPCM:
+                    m[chipID].work[ch].size *= 2;
+                    m[chipID].work[ch].lp_start *= 2;
+                    m[chipID].work[ch].lp_end *= 2;
+                    //SetFreq(chipID, ch, 4);
+                    break;
+            }
+
+            if (ptr.orig >= 0)
+            {
+                SetPitch(chipID, ch, m[chipID].work[ch].orig);
             }
             else
             {
-                KeyOff(chipID, ch);
-
-                m[chipID].work[ch].type = ptr.type;
-                m[chipID].work[ch].orig = (UInt16)(ptr.orig << 6);
-                m[chipID].work[ch].adrs_buf = ptr.adrs_buf;
-                m[chipID].work[ch].adrs_ptr = ptr.adrs_ptr;
-                m[chipID].work[ch].size = ptr.size;
-                m[chipID].work[ch].lp_start = ptr.start;
-                m[chipID].work[ch].lp_end = ptr.end;
-                m[chipID].work[ch].lp_count = ptr.count;
-                m[chipID].work[ch].pitch = 0x10000;
-
-                if (m[chipID].work[ch].lp_end == 0) m[chipID].work[ch].lp_end = m[chipID].work[ch].size;
-
-                switch (ptr.type)
-                {
-                    case (byte)TYPE._16:
-                        m[chipID].work[ch].size /= 2;
-                        m[chipID].work[ch].lp_start /= 2;
-                        m[chipID].work[ch].lp_end /= 2;
-                        break;
-                    case (byte)TYPE._ADPCM:
-                        m[chipID].work[ch].size *= 2;
-                        m[chipID].work[ch].lp_start *= 2;
-                        m[chipID].work[ch].lp_end *= 2;
-                        break;
-                }
-
-                if (ptr.orig >= 0)
-                {
-                    SetPitch(chipID, ch, m[chipID].work[ch].orig);
-                }
-                else
-                {
-                    SetPitch(chipID, ch, 440 << 6);// ssTrackInfo::OCT4_A << 6);  ?
-                }
+                SetPitch(chipID, ch, 440 << 6);// ssTrackInfo::OCT4_A << 6);  ?
             }
+
             return true;
         }
 
-        public void SetFreq(int chipID, int ch, int num)
+        public void SetFreq(int chipID, int ch, int num, int d3Freq = 0)
         {
             if (ch == 0xff)
             {
                 for (int i = 0; i < (int)VOICE.MAX; i++) SetFreq(chipID, i, num);
+                return;
             }
-            else
+
+            num = (byte)num;
+            if (num < 0 || num >= baseClockTbl.Length) return;
+            m[chipID].work[ch].base_ = (float)baseClockTbl[num] / m[chipID].rate;
+            SetPitch(chipID, ch, m[chipID].work[ch].lastNote);
+            m[chipID].work[ch].PcmKind = num;
+            m[chipID].work[ch].freq = baseClockTbl[num];
+            m[chipID].work[ch].outs = outsTable[num];
+            m[chipID].work[ch].type = (int)typeTable[num];
+            if (baseClockTbl[num] < 0 && num >= 0xf)
             {
-                num = (byte)num;
-                if (num < 0 || num > 6) return;
-                m[chipID].work[ch].base_ = (float)baseClockTbl[num] / m[chipID].rate;
-                SetPitch(chipID, ch, m[chipID].work[ch].lastNote);
+                m[chipID].work[ch].freq = d3Freq / 256.0;
             }
+
         }
 
 
@@ -498,42 +577,41 @@ namespace MDSound
             if (ch == 0xff)
             {
                 for (int i = 0; i < (int)VOICE.MAX; i++) SetPitch(chipID, i, note);
+                return;
+            }
+
+            UInt16 orig = m[chipID].work[ch].orig;
+            UInt32 pitch = 0x10000;
+            Int16 doct = 0, dnote = 0;
+
+            m[chipID].work[ch].lastNote = note;
+            dnote = (Int16)note;
+
+            if (orig > 0x1fc0)
+            {
+                m[chipID].work[ch].pitch = (UInt32)(0x10000 * m[chipID].work[ch].base_);
+                return;
+            }
+
+            dnote -= (Int16)orig;
+            if (dnote == 0)
+            {
+                pitch = 0x10000;
+            }
+            else if (dnote > 0)
+            {
+                for (dnote -= 64 * 12; dnote >= 0; dnote -= 64 * 12, doct++) ;
+                dnote += 64 * 12;
+                pitch += pitchtbl[dnote];
+                pitch <<= doct;
             }
             else
             {
-                UInt16 orig = m[chipID].work[ch].orig;
-                UInt32 pitch = 0x10000;
-                Int16 doct = 0, dnote = 0;
-
-                m[chipID].work[ch].lastNote = note;
-                dnote = (Int16)note;
-
-                if (orig > 0x1fc0)
-                {
-                    m[chipID].work[ch].pitch = (UInt32)(0x10000 * m[chipID].work[ch].base_);
-                    return;
-                }
-
-                dnote -= (Int16)orig;
-                if (dnote == 0)
-                {
-                    pitch = 0x10000;
-                }
-                else if (dnote > 0)
-                {
-                    for (dnote -= 64 * 12; dnote >= 0; dnote -= 64 * 12, doct++) ;
-                    dnote += 64 * 12;
-                    pitch += pitchtbl[dnote];
-                    pitch <<= doct;
-                }
-                else
-                {
-                    for (; dnote < 0; dnote += 64 * 12, doct++) ;
-                    pitch += pitchtbl[dnote];
-                    pitch >>= doct;
-                }
-                m[chipID].work[ch].pitch = (UInt32)(pitch * m[chipID].work[ch].base_);
+                for (; dnote < 0; dnote += 64 * 12, doct++) ;
+                pitch += pitchtbl[dnote];
+                pitch >>= doct;
             }
+            m[chipID].work[ch].pitch = (UInt32)(pitch * m[chipID].work[ch].base_);
         }
 
         public void SetVol(int chipID, int ch, int vol)
@@ -541,13 +619,12 @@ namespace MDSound
             if (ch == 0xff)
             {
                 for (int i = 0; i < (int)VOICE.MAX; i++) SetVol(chipID, i, vol);
+                return;
             }
-            else
-            {
-                vol &= 0x7f;
-                m[chipID].work[ch].volwork = vol;
-                m[chipID].work[ch].vol = m[chipID].voltbl[vol];
-            }
+
+            vol &= 0x7f;
+            m[chipID].work[ch].volwork = vol;
+            m[chipID].work[ch].vol = m[chipID].voltbl[vol];
         }
 
         public void SetPan(int chipID, int ch, int pan)
@@ -555,47 +632,46 @@ namespace MDSound
             if (ch == 0xff)
             {
                 for (int i = 0; i < (int)VOICE.MAX; i++) SetPan(chipID, i, pan);
+                return;
             }
-            else
+
+            if (pan < 0x80)
             {
-                if (pan < 0x80)
+                // 3段階
+                switch (pan)
                 {
-                    // 3段階
-                    switch (pan)
-                    {
-                        case 1:
-                            m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 0;
-                            break;
-                        case 2:
-                            m[chipID].work[ch].lr[0] = 0; m[chipID].work[ch].lr[1] = 1;
-                            break;
-                        case 3:
-                            m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 1;
-                            break;
-                        case 0:
-                            m[chipID].work[ch].lr[0] = 0; m[chipID].work[ch].lr[1] = 0;
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                else
-                {
-                    // 128段階
-                    pan -= 0x80;
-                    if(pan>=0 && pan <= 31)
-                    {
+                    case 1:
                         m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 0;
-                    }
-                    else if (pan >= 32 && pan <= 95)
-                    {
-                        m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 1;
-                    }
-                    else if (pan >= 96 && pan <= 127)
-                    {
+                        break;
+                    case 2:
                         m[chipID].work[ch].lr[0] = 0; m[chipID].work[ch].lr[1] = 1;
-                    }
+                        break;
+                    case 3:
+                        m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 1;
+                        break;
+                    case 0:
+                        m[chipID].work[ch].lr[0] = 0; m[chipID].work[ch].lr[1] = 0;
+                        break;
+                    default:
+                        break;
                 }
+
+                return;
+            }
+
+            // 128段階
+            pan -= 0x80;
+            if (pan >= 0 && pan <= 31)
+            {
+                m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 0;
+            }
+            else if (pan >= 32 && pan <= 95)
+            {
+                m[chipID].work[ch].lr[0] = 1; m[chipID].work[ch].lr[1] = 1;
+            }
+            else if (pan >= 96 && pan <= 127)
+            {
+                m[chipID].work[ch].lr[0] = 0; m[chipID].work[ch].lr[1] = 1;
             }
         }
 
@@ -605,12 +681,11 @@ namespace MDSound
             {
                 // 16
                 m[chipID].voltbl = voltbl[0];
+                return;
             }
-            else
-            {
-                // 128
-                m[chipID].voltbl = voltbl[1];
-            }
+
+            // 128
+            m[chipID].voltbl = voltbl[1];
         }
 
         public void SetVolTableZms(int chipID, int sel, int[] tbl)
@@ -619,12 +694,11 @@ namespace MDSound
             {
                 // 16
                 m[chipID].voltbl = tbl;
+                return;
             }
-            else
-            {
-                // 128
-                m[chipID].voltbl = tbl;
-            }
+
+            // 128
+            m[chipID].voltbl = tbl;
         }
 
         private int Decode(int chipID, int ch, byte[] adrs_buf, int adrs_ptr, long pos)
@@ -644,6 +718,7 @@ namespace MDSound
                 return sample;
             }
 
+            cnt = pos - prev;
             if (prev == -1)
             {
                 // 初回だぜ．
@@ -653,11 +728,6 @@ namespace MDSound
                 m[chipID].work[ch].lp_sample = 0;
                 m[chipID].work[ch].lp_offset = 0;
             }
-            else
-            {
-                cnt = pos - prev;
-            }
-
 
             for (long c = 0; c < cnt; c++)
             {
@@ -702,7 +772,8 @@ namespace MDSound
 
         public void Update_(int chipID, int[][] _buffer, Int32 _count)
         {
-            int sample;
+            int sampleL;
+            int sampleR;
             Int16 buf_ptr = 0;
             long pos = 0;
 
@@ -723,7 +794,8 @@ namespace MDSound
                 UInt32 pitch = m[chipID].work[ch].pitch;
                 for (UInt32 bufsize = 0; (bufsize < _count) && (m[chipID].work[ch].enable); bufsize++)
                 {
-                    sample = 0;
+                    sampleL = 0;
+                    sampleR = 0;
                     pos = ofst >> 16;
 
                     switch (m[chipID].work[ch].type)
@@ -731,21 +803,34 @@ namespace MDSound
                         case (int)TYPE._NONE:
                             break;
                         case (int)TYPE._ADPCM:
-                            sample = Decode(chipID, ch, ptr_buf, ptr_ptr, pos);
+                            sampleR = sampleL = Decode(chipID, ch, ptr_buf, ptr_ptr, pos);
                             break;
                         case (int)TYPE._16:
-                            sample = (short)((ptr_buf[(uint)(ptr_ptr + pos * 2)] << 8) + ptr_buf[(uint)(ptr_ptr + pos * 2 + 1)]);
+                            if (m[chipID].work[ch].outs == 1)
+                                sampleR = sampleL = (short)((ptr_buf[(uint)(ptr_ptr + pos * 2)] << 8) + ptr_buf[(uint)(ptr_ptr + pos * 2 + 1)]);
+                            else
+                            {
+                                sampleL = (short)((ptr_buf[(uint)(ptr_ptr + pos * 4 + 0)] << 8) + ptr_buf[(uint)(ptr_ptr + pos * 4 + 1)]);
+                                sampleR = (short)((ptr_buf[(uint)(ptr_ptr + pos * 4 + 2)] << 8) + ptr_buf[(uint)(ptr_ptr + pos * 4 + 3)]);
+                            }
                             break;
                         case (int)TYPE._8:
-                            sample = ptr_buf[(uint)(ptr_ptr + pos)];
+                            if (m[chipID].work[ch].outs == 1)
+                                sampleR = sampleL = ptr_buf[(uint)(ptr_ptr + pos)];
+                            else
+                            {
+                                sampleL = ptr_buf[(uint)(ptr_ptr + pos * 2 + 0)];
+                                sampleR = ptr_buf[(uint)(ptr_ptr + pos * 2 + 1)];
+                            }
                             break;
                     }
-                    sample = (sample * m[chipID].work[ch].vol) >> 3;
+                    sampleL = (sampleL * m[chipID].work[ch].vol) >> 3;
+                    sampleR = (sampleR * m[chipID].work[ch].vol) >> 3;
 
                     if (!mute)
                     {
-                        int a = _buffer[0][buf_ptr] + (sample * m[chipID].work[ch].lr[0]);
-                        int b = _buffer[1][buf_ptr] + (sample * m[chipID].work[ch].lr[1]);
+                        int a = _buffer[0][buf_ptr] + (sampleL * m[chipID].work[ch].lr[0]);
+                        int b = _buffer[1][buf_ptr] + (sampleR * m[chipID].work[ch].lr[1]);
                         a = Math.Min(Math.Max(a, Int16.MinValue), Int16.MaxValue);
                         b = Math.Min(Math.Max(b, Int16.MinValue), Int16.MaxValue);
                         _buffer[0][buf_ptr] = a;

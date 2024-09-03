@@ -227,8 +227,8 @@ namespace MDSound
             const double VOL_CAP = 1.80;
 
             short[] dpcm = new short[16]{
-                0<<8, 1<<8, 4<<8, 9<<8, 16<<8, 25<<8, 36<<8, 49<<8,
-                -64<<8, -49<<8, -36<<8, -25<<8, -16<<8, -9<<8, -4<<8, -1<<8
+                0<<8, 1<<8, 2<<8, 4<<8, 8<<8, 16<<8, 32<<8, 64<<8,
+                0<<8,-64<<8, -32<<8, -16<<8, -8<<8, -4<<8, -2<<8, -1<<8
             };
 
             byte[] rbase = info.ram;//caution original INT16* 
@@ -363,6 +363,10 @@ namespace MDSound
                                         cur_pos += (uint)pdelta;
 
                                         cur_pval = cur_val;
+                                        if (rom.Length <= cur_pos)
+                                        {
+                                            cur_pos = (uint)(rom.Length - 1);
+                                        }
                                         cur_val = (short)(rom[cur_pos] << 8);
                                         //if(cur_val == (INT16)0x8000 && (base2[1] & 1))
                                         if (rom[cur_pos] == 0x80 && (base2[ptrBase2 + 1] & 1) != 0)
