@@ -166,7 +166,8 @@ namespace MDSound
             YM2151x68soundPCM,
             PCM8PP,
             mpcmpp,
-            ZXBeep
+            ZXBeep,
+            CS4231
         }
 
         public class Chip
@@ -195,8 +196,8 @@ namespace MDSound
             public uint SmpP;
             public uint SmpLast;
             public uint SmpNext;
-            public int[] LSmpl;
-            public int[] NSmpl;
+            public int[] LSmpl=new int[2];
+            public int[] NSmpl = new int[2];
 
             public object[] Option = null;
 
@@ -2787,6 +2788,207 @@ namespace MDSound
 
         #endregion
 
+        #region CS4231
+
+        public void SetCS4231FIFOBuf(byte ChipID, byte[] buf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][0])).setFIFOBuf(ChipID, buf);
+            }
+        }
+
+        public void SetCS4231FIFOBuf(int ChipIndex, byte ChipID, byte[] buf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][ChipIndex])).setFIFOBuf(ChipID, buf);
+            }
+        }
+
+        public byte[] getCS4231EMS_GetCrntMapBuf(byte ChipID)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return null;
+
+                return (((CS4231)dicInst[enmInstrumentType.CS4231][0])).EMS_GetCrntMapBuf(ChipID);
+            }
+        }
+
+        public byte[] getCS4231EMS_GetCrntMapBuf(int ChipIndex, byte ChipID)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return null;
+
+                return (((CS4231)dicInst[enmInstrumentType.CS4231][ChipIndex])).EMS_GetCrntMapBuf(ChipID);
+            }
+        }
+
+        public void setCS4231EMS_Map(byte ChipID, byte al, ref byte ah, ushort bx, ushort dx)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return ;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][0])).EMS_Map(ChipID, al, ref ah, bx, dx);
+            }
+        }
+
+        public void setCS4231EMS_Map(int ChipIndex, byte ChipID, byte al, ref byte ah, ushort bx, ushort dx)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][ChipIndex])).EMS_Map(ChipID, al, ref ah, bx, dx);
+            }
+        }
+
+        public ushort getCS4231EMS_GetPageMap(byte ChipID)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return 0;
+
+                return (((CS4231)dicInst[enmInstrumentType.CS4231][0])).EMS_GetPageMap(ChipID);
+            }
+        }
+
+        public ushort getCS4231EMS_GetPageMap(int ChipIndex, byte ChipID)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return 0;
+
+                return (((CS4231)dicInst[enmInstrumentType.CS4231][ChipIndex])).EMS_GetPageMap(ChipID);
+            }
+        }
+
+        public void getCS4231EMS_GetHandleName(byte ChipID, ref byte ah, ushort dx, ref string sbuf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][0])).EMS_GetHandleName(ChipID, ref ah, dx, ref sbuf);
+            }
+        }
+
+        public void getCS4231EMS_GetHandleName(int ChipIndex, byte ChipID, ref byte ah, ushort dx, ref string sbuf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][ChipIndex])).EMS_GetHandleName(ChipID, ref ah, dx, ref sbuf);
+            }
+        }
+
+        public void setCS4231EMS_SetHandleName(byte ChipID, ref byte ah, ushort dx, string sbuf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][0])).EMS_SetHandleName(ChipID, ref ah, dx, sbuf);
+            }
+        }
+
+        public void setCS4231EMS_SetHandleName(int ChipIndex, byte ChipID, ref byte ah, ushort dx, string sbuf)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][ChipIndex])).EMS_SetHandleName(ChipID, ref ah, dx, sbuf);
+            }
+        }
+
+        public void setCS4231EMS_AllocMemory(byte ChipID, ref byte ah, ref ushort dx, ushort bx)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][0])).EMS_AllocMemory(ChipID, ref ah, ref dx, bx);
+            }
+        }
+
+        public void setCS4231EMS_AllocMemory(int ChipIndex, byte ChipID, ref byte ah, ref ushort dx, ushort bx)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                (((CS4231)dicInst[enmInstrumentType.CS4231][ChipIndex])).EMS_AllocMemory(ChipID, ref ah, ref dx, bx);
+            }
+        }
+
+        //public void SetCS4231Int0bEnt(byte ChipID, Action act)
+        //{
+        //    lock (lockobj)
+        //    {
+        //        if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+        //        (((CS4231)dicInst[enmInstrumentType.CS4231][0])).setInt0bEnt(ChipID, act);
+        //    }
+        //}
+
+        //public void SetCS4231Int0bEnt(int ChipIndex, byte ChipID, Action act)
+        //{
+        //    lock (lockobj)
+        //    {
+        //        if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+        //        (((CS4231)dicInst[enmInstrumentType.CS4231][ChipIndex])).setInt0bEnt(ChipID, act);
+        //    }
+        //}
+
+        public void WriteCS4231(byte ChipID, byte port, byte Adr, byte Data)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                ((dicInst[enmInstrumentType.CS4231][0])).Write(ChipID, port, Adr, Data);
+            }
+        }
+
+        public void WriteCS4231(int ChipIndex, byte ChipID, byte port, byte Adr, byte Data)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return;
+
+                ((dicInst[enmInstrumentType.CS4231][ChipIndex])).Write(ChipID, port, Adr, Data);
+            }
+        }
+
+        public byte ReadCS4231(byte ChipID,byte adr)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return 0;
+                return ((CS4231)(dicInst[enmInstrumentType.CS4231][0])).ReadReg(ChipID, adr);
+            }
+        }
+
+        public byte ReadCS4231(int ChipIndex,byte ChipID,byte adr)
+        {
+            lock (lockobj)
+            {
+                if (!dicInst.ContainsKey(enmInstrumentType.CS4231)) return 0;
+                return ((CS4231)(dicInst[enmInstrumentType.CS4231][ChipIndex])).ReadReg(ChipID, adr);
+            }
+        }
+
+        #endregion
 
         #region YM2151
 
@@ -6171,7 +6373,7 @@ namespace MDSound
         {
             lock (lockobj)
             {
-                huc6280Mask[0][chipID] |= ch;
+                huc6280Mask[0][chipID] |= (1<<ch);
                 if (!dicInst.ContainsKey(enmInstrumentType.HuC6280)) return;
                 ((Ootake_PSG)(dicInst[enmInstrumentType.HuC6280][0])).HuC6280_SetMute((byte)chipID, huc6280Mask[0][chipID]);
             }
@@ -6181,7 +6383,7 @@ namespace MDSound
         {
             lock (lockobj)
             {
-                huc6280Mask[ChipIndex][chipID] |= ch;
+                huc6280Mask[ChipIndex][chipID] |= (1<<ch);
                 if (!dicInst.ContainsKey(enmInstrumentType.HuC6280)) return;
                 ((Ootake_PSG)(dicInst[enmInstrumentType.HuC6280][ChipIndex])).HuC6280_SetMute((byte)chipID, huc6280Mask[ChipIndex][chipID]);
             }
@@ -6484,7 +6686,7 @@ namespace MDSound
         {
             lock (lockobj)
             {
-                huc6280Mask[0][chipID] &= ~ch;
+                huc6280Mask[0][chipID] &= ~(1<<ch);
                 if (!dicInst.ContainsKey(enmInstrumentType.HuC6280)) return;
                 ((Ootake_PSG)(dicInst[enmInstrumentType.HuC6280][0])).HuC6280_SetMute((byte)chipID, huc6280Mask[0][chipID]);
             }
@@ -6494,7 +6696,7 @@ namespace MDSound
         {
             lock (lockobj)
             {
-                huc6280Mask[ChipIndex][chipID] &= ~ch;
+                huc6280Mask[ChipIndex][chipID] &= ~(1<<ch);
                 if (!dicInst.ContainsKey(enmInstrumentType.HuC6280)) return;
                 ((Ootake_PSG)(dicInst[enmInstrumentType.HuC6280][ChipIndex])).HuC6280_SetMute((byte)chipID, huc6280Mask[ChipIndex][chipID]);
             }
