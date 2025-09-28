@@ -8,6 +8,8 @@ using NAudio.Wave;
 using NAudio.CoreAudioApi;
 using System.Runtime.InteropServices;
 using System.IO;
+using System.Threading;
+
 namespace MDSound
 {
     public class MDSound
@@ -841,7 +843,14 @@ namespace MDSound
 
         public void StopRendering()
         {
-            this.wavOut.Stop();
+            if (wavProvider != null && wavOut != null)
+            {
+                while (wavProvider.BufferedDuration.TotalMilliseconds > 0)
+                {
+                    Thread.Sleep(10);
+                }
+                wavOut.Dispose();
+            }
         }
 
         public void Rendering(int size)
