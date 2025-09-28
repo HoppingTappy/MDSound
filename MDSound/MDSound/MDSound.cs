@@ -8,7 +8,6 @@ using NAudio.Wave;
 using NAudio.CoreAudioApi;
 using System.Runtime.InteropServices;
 using System.IO;
-
 namespace MDSound
 {
     public class MDSound
@@ -847,13 +846,10 @@ namespace MDSound
 
         public void Rendering(int size)
         {
-            var data = Update(size);
-            var dd = new byte[2];
-            for (int i = 0; i < data.Length; i++)
-            {
-                dd = BitConverter.GetBytes(data[i]);
-                wavProvider.AddSamples(dd, 0, 2);
-            }
+            var samples = Update(size);
+            var bytes = new byte[samples.Length * sizeof(short)];
+            Buffer.BlockCopy(samples, 0, bytes, 0, bytes.Length);
+            wavProvider.AddSamples(bytes, 0, bytes.Length);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
