@@ -813,18 +813,21 @@ namespace MDSound
             }
         }
 
-        public void StartRendering(int latency)
+        public void StartRendering(int latency=50, int delay=200)
         {
-
             wavProvider = new BufferedWaveProvider(new WaveFormat((int)SamplingRate, 16, 2));
+            int samples = (int)(SamplingRate * delay / 1000.0);
+            var warmup = Update(samples);
+
+            byte[] warmupBytes = new byte[warmup.Length * sizeof(short)];
+            Buffer.BlockCopy(warmup, 0, warmupBytes, 0, warmupBytes.Length);
+            wavProvider.AddSamples(warmupBytes, 0, warmupBytes.Length);
+
             var mmDevice = new MMDeviceEnumerator().GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-
-
             this.wavOut = new WasapiOut(mmDevice, AudioClientShareMode.Shared, false, latency);
 
             this.wavOut.Init(wavProvider);
             this.wavOut.Play();
-            Console.WriteLine("exit rendering");
         }
 
         public void PauseRendering()
